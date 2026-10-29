@@ -51,6 +51,11 @@ def bucket_keys(down, dist, ytg):
     return [f"{down}|{dist_bin(dist)}|{z}", f"{down}|*|{z}", f"*|*|{z}", "*|*|*"]
 
 
+CALL_KIND = {
+    "inside_run": "run", "outside_left": "run", "outside_right": "run",
+    "screen": "pass", "short_pass": "pass", "deep_pass": "pass", "pass": "pass",
+}
+
 RUN_TYPES = {"rush", "rushing touchdown"}
 PASS_TYPES = {
     "pass reception", "pass completion", "pass incompletion", "passing touchdown",
@@ -123,6 +128,12 @@ def num(v, default=None):
         return default
 
 
+def timeouts(v):
+    """Timeouts left, 0-3. The source sometimes has blanks or negative numbers."""
+    t = num(v)
+    return t if t is not None and 0 <= t <= 3 else 2
+
+
 def clock_secs(c):
     if isinstance(c, dict):
         return (num(c.get("minutes"), 0) or 0) * 60 + (num(c.get("seconds"), 0) or 0)
@@ -138,8 +149,7 @@ def load_plays():
 
 
 def build_playbook(plays, rng):
-    buckets = defaultdict(lambda: defaultdict(list))
-    labeled = 0
+    rows_in = []
     for p in plays:
         down, dist, ytg = num(p.get("down")), num(p.get("distance")), num(p.get("yardsToGoal"))
         if down not in (1, 2, 3, 4) or dist is None or ytg is None or not 1 <= ytg <= 99:
@@ -151,16 +161,28 @@ def build_playbook(plays, rng):
         yards = num(p.get("yardsGained"), 0)
         txt = (p.get("playText") or "").lower()
         oob = 1 if "out of bounds" in txt or "ran out" in txt else 0
-        row = [yards, outcome, oob]
-        # Sacks and interceptions rarely say how deep the throw was meant to go.
-        # Without this, the short and deep pools would contain no sacks or picks.
+        rows_in.append((call, down, dist, ytg, [yards, outcome, oob]))
+
+    # Sacks and interceptions rarely say how deep the throw was meant to go, so they
+    # land in the generic 'pass' pool. Without help, the short and deep pools would have
+    # no sacks or picks at all. Give each one a chance to join them equal to the share of
+    # passes whose depth is known, so their rates there match the overall rates.
+    passes = sum(1 for r in rows_in if CALL_KIND.get(r[0]) == "pass")
+    depth_known = sum(1 for r in rows_in if r[0] in ("short_pass", "deep_pass", "screen"))
+    share = depth_known / passes if passes else 0
+    n_short = sum(1 for r in rows_in if r[0] == "short_pass")
+    n_deep = sum(1 for r in rows_in if r[0] == "deep_pass")
+    p_short = n_short / (n_short + n_deep) if n_short + n_deep else 0.5
+
+    buckets = defaultdict(lambda: defaultdict(list))
+    for call, down, dist, ytg, row in rows_in:
         targets = [call]
-        if call == "pass" and outcome in (SACK, INTERCEPTION):
-            targets = ["pass", "short_pass", "deep_pass"]
+        if call == "pass" and row[1] in (SACK, INTERCEPTION) and rng.random() < share:
+            targets.append("short_pass" if rng.random() < p_short else "deep_pass")
         for c in targets:
             for k in bucket_keys(down, dist, ytg):
                 buckets[c][k].append(row)
-        labeled += 1
+    labeled = len(rows_in)
 
     calls = {}
     for call, by_key in buckets.items():
@@ -214,7 +236,7 @@ def build_spots(plays):
                 "clock": secs,
                 "ytg": ytg, "down": 1, "dist": min(dist, ytg),
                 "score": {"us": os_, "them": ds},
-                "to": {"us": num(p.get("offenseTimeouts"), 2), "them": num(p.get("defenseTimeouts"), 2)},
+                "to": {"us": timeouts(p.get("offenseTimeouts")), "them": timeouts(p.get("defenseTimeouts"))},
                 "real": {"won": won, "final": f"{final.get(off, 0)}-{final.get(p.get('defense'), 0)}"},
             })
             break  # one spot per game

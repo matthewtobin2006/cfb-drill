@@ -17,13 +17,23 @@ export const CALLS = {
   screen:        { label: 'Screen',        group: 'Pass', kind: 'pass' },
   short_pass:    { label: 'Short pass',    group: 'Pass', kind: 'pass' },
   deep_pass:     { label: 'Deep shot',     group: 'Pass', kind: 'pass' },
+  // Passes whose depth the play-by-play doesn't record. Only offered when the
+  // data has no short/deep split (see pipeline/build_data.py).
+  pass:          { label: 'Pass',          group: 'Pass', kind: 'pass' },
   spike:         { label: 'Spike',         group: 'Clock', kind: 'spike' },
   kneel:         { label: 'Kneel',         group: 'Clock', kind: 'kneel' },
   field_goal:    { label: 'Field goal',    group: 'Kick', kind: 'fg' },
   punt:          { label: 'Punt',          group: 'Kick', kind: 'punt' },
   pat_kick:      { label: 'Kick the PAT',  group: 'Try',  kind: 'pat' },
 };
-export const SCRIMMAGE = ['inside_run', 'outside_left', 'outside_right', 'screen', 'short_pass', 'deep_pass'];
+export const SCRIMMAGE = ['inside_run', 'outside_left', 'outside_right', 'screen', 'short_pass', 'deep_pass', 'pass'];
+
+// Calls the user can pick. 'pass' (depth unknown) is a fallback pool, so it is only
+// offered when neither short nor deep passes exist in the data.
+export function scrimmageCalls(pb) {
+  return SCRIMMAGE.filter((c) => pb.calls[c] &&
+    !(c === 'pass' && (pb.calls.short_pass || pb.calls.deep_pass)));
+}
 export const TEMPO = {
   hurry:  { label: 'No-huddle', secs: 12 },
   normal: { label: 'Huddle',    secs: 24 },
@@ -90,7 +100,7 @@ export function clone(s) { return { ...s, score: { ...s.score }, to: { ...s.to }
 
 // Calls the team with the ball can make right now.
 export function options(s, pb) {
-  const scrim = SCRIMMAGE.filter((c) => pb.calls[c]);
+  const scrim = scrimmageCalls(pb);
   if (s.phase === 'pat') return ['pat_kick', ...scrim];
   if (s.phase === 'two') return scrim;
   const o = [...scrim];
@@ -318,7 +328,9 @@ function scrimmageCall(s, pb, rng, L, late) {
     const r = rng();
     call = r < 0.55 ? 'inside_run' : r < 0.775 ? 'outside_left' : 'outside_right';
   }
-  return pb.calls[call] ? call : SCRIMMAGE.find((c) => pb.calls[c]);
+  if (pb.calls[call]) return call;
+  const sameKind = scrimmageCalls(pb).filter((c) => CALLS[c].kind === CALLS[call].kind);
+  return sameKind[Math.floor(rng() * sameKind.length)] || scrimmageCalls(pb)[0];
 }
 
 export function policy(s, pb, rng) {

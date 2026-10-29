@@ -273,6 +273,9 @@ let spotList;
 async function init() {
   const [pbRes, spotsRes] = await Promise.all([fetch('data/playbook.json'), fetch('data/spots.json')]);
   pb = await pbRes.json();
+  // College play-by-play rarely says which way a run went; when the data has no
+  // outside runs, every run is in the one pool, so call it what it is.
+  if (!pb.calls.outside_left && !pb.calls.outside_right) CALLS.inside_run.label = 'Run';
   const spotsData = await spotsRes.json();
   spotList = spotsData.spots;
   if (pb.meta?.synthetic || spotsData.meta?.synthetic) {
