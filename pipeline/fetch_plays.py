@@ -26,6 +26,10 @@ KEEP = [
 ]
 
 
+class KeyRejected(Exception):
+    pass
+
+
 def get(path, params, key):
     url = f"{API}{path}?{urllib.parse.urlencode(params)}"
     req = urllib.request.Request(url, headers={
@@ -37,8 +41,15 @@ def get(path, params, key):
             with urllib.request.urlopen(req, timeout=60) as r:
                 return json.load(r)
         except urllib.error.HTTPError as e:
+            if e.code in (401, 403):
+                raise KeyRejected(f"HTTP {e.code} from {path}: the API rejected the key") from e
             if e.code == 429 and attempt < 2:
                 time.sleep(10)
+                continue
+            raise
+        except urllib.error.URLError as e:
+            if attempt < 2:
+                time.sleep(5)
                 continue
             raise
 
@@ -65,6 +76,9 @@ def fetch_season(year, key):
             except urllib.error.HTTPError as e:
                 print(f"  {year} {season_type} wk{week}: HTTP {e.code}, skipped", file=sys.stderr)
                 continue
+            if not isinstance(plays, list):
+                print(f"  {year} {season_type} wk{week}: unexpected response {str(plays)[:200]}", file=sys.stderr)
+                continue
             for p in plays:
                 row = {k: camel(p, k) for k in KEEP}
                 row["season"] = year
@@ -80,12 +94,23 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--years", nargs="+", type=int, required=True)
     args = ap.parse_args()
-    key = os.environ.get("CFBD_API_KEY")
+    # Pasted keys often carry a trailing space or newline, which breaks the header.
+    key = (os.environ.get("CFBD_API_KEY") or "").strip().strip('"').strip("'")
+    if key.lower().startswith("bearer "):
+        key = key[7:].strip()
     if not key:
         sys.exit("Set CFBD_API_KEY (free key from collegefootballdata.com).")
+    if any(c.isspace() for c in key):
+        sys.exit("CFBD_API_KEY contains spaces or line breaks. Re-paste just the key.")
+    print(f"Using a key of {len(key)} characters.")
     RAW_DIR.mkdir(exist_ok=True)
-    for y in args.years:
-        fetch_season(y, key)
+    try:
+        for y in args.years:
+            fetch_season(y, key)
+    except KeyRejected as e:
+        sys.exit(f"{e}. Check the CFBD_API_KEY secret: it should be exactly the key from the email.")
+    except urllib.error.URLError as e:
+        sys.exit(f"Could not reach {API}: {e.reason}")
 
 
 if __name__ == "__main__":
