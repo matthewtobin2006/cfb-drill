@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>CFB Drill</title>
+  <meta name="description" content="Call the plays at the end of a real college football game. One drive a day, graded on win chance.">
+  <meta name="theme-color" content="#1f3d2b">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="mark">CFB</span> Drill</div>
+    <div class="streak" id="streak" hidden></div>
+  </header>
+
+  <main>
+    <div class="notice" id="notice" hidden></div>
+
+    <section class="board" aria-live="polite">
+      <div class="team us"><span class="name" id="usName">—</span><span class="pts" id="usPts">0</span><span class="tos" id="usTo"></span></div>
+      <div class="mid">
+        <div class="clock" id="clock">0:00</div>
+        <div class="period" id="period">4th</div>
+      </div>
+      <div class="team them"><span class="name" id="themName">—</span><span class="pts" id="themPts">0</span><span class="tos" id="themTo"></span></div>
+      <div class="situation" id="situation">Loading today's drive…</div>
+    </section>
+
+    <svg class="field" id="field" viewBox="0 0 120 30" role="img" aria-label="Field position"></svg>
+
+    <section class="controls" id="controls" hidden>
+      <div class="row tempo" id="tempoRow" role="radiogroup" aria-label="Tempo"></div>
+      <label class="to-toggle" id="toToggle"><input type="checkbox" id="useTO"> Call timeout first</label>
+      <div class="calls" id="calls"></div>
+    </section>
+
+    <section class="thinking" id="thinking" hidden>Grading your call against every option…</section>
+
+    <section class="end" id="end" hidden></section>
+
+    <ol class="log" id="log"></ol>
+  </main>
+
+  <footer>
+    <p>Every snap is a real college play of the call you made, from the same kind of situation. Calls are graded on win chance by simulating the rest of the game for every option.</p>
+    <p>An independent fan project, not affiliated with the NCAA, any conference or any school. Data: <a href="https://collegefootballdata.com/">CollegeFootballData.com</a>.</p>
+  </footer>
+
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+{
+ "meta": {
+  "synthetic": true
+ },
+ "spots": [
+  {
+   "id": "sample-1",
+   "teams": {
+    "us": "Sample State",
+    "them": "Example Tech"
+   },
+   "clock": 118,
+   "ytg": 75,
+   "down": 1,
+   "dist": 10,
+   "score": {
+    "us": 20,
+    "them": 24
+   },
+   "to": {
+    "us": 2,
+    "them": 2
+   }
+  },
+  {
+   "id": "sample-2",
+   "teams": {
+    "us": "Placeholder U",
+    "them": "Demo A&M"
+   },
+   "clock": 74,
+   "ytg": 58,
+   "down": 1,
+   "dist": 10,
+   "score": {
+    "us": 17,
+    "them": 17
+   },
+   "to": {
+    "us": 1,
+    "them": 3
+   }
+  },
+  {
+   "id": "sample-3",
+   "teams": {
+    "us": "Test College",
+    "them": "Mock State"
+   },
+   "clock": 195,
+   "ytg": 66,
+   "down": 1,
+   "dist": 10,
+   "score": {
+    "us": 27,
+    "them": 31
+   },
+   "to": {
+    "us": 3,
+    "them": 1
+   }
+  }
+ ]
+}

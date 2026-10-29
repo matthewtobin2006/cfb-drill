@@ -1,0 +1,60 @@
+name: Update play data
+
+# Every Sunday morning (after Saturday's games), pull the latest play-by-play from
+# CollegeFootballData.com, rebuild the playbook and spots, and commit them.
+# Needs a repo secret named CFBD_API_KEY (Settings → Secrets and variables → Actions).
+on:
+  schedule:
+    - cron: "17 13 * * 0"   # Sundays 13:17 UTC (9:17 a.m. Eastern in summer)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check for API key
+        id: key
+        env:
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+        run: |
+          if [ -z "$CFBD_API_KEY" ]; then
+            echo "No CFBD_API_KEY secret yet; skipping." >> "$GITHUB_STEP_SUMMARY"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch plays (current season and the two before it)
+        if: steps.key.outputs.ok == 'true'
+        env:
+          CFBD_API_KEY: ${{ secrets.CFBD_API_KEY }}
+        run: |
+          Y=$(date +%Y)
+          if [ "$(date +%m)" -lt 8 ]; then Y=$((Y-1)); fi
+          python pipeline/fetch_plays.py --years $((Y-2)) $((Y-1)) $Y
+
+      - name: Build playbook and spots
+        if: steps.key.outputs.ok == 'true'
+        run: python pipeline/build_data.py
+
+      - name: Commit updated data
+        if: steps.key.outputs.ok == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/data
+          if git diff --cached --quiet; then
+            echo "No data changes."
+          else
+            git commit -m "Update play data"
+            git push
+          fi
